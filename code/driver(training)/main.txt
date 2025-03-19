@@ -1,0 +1,93 @@
+import cv2
+import numpy as np
+import tensorflow as tf
+import pygame
+
+# Initialize pygame mixer
+pygame.mixer.init()
+alarm_sound = pygame.mixer.Sound("alam.mp3")
+
+# Load the pre-trained model
+model = tf.keras.models.load_model("best_drowsiness_model.keras")
+
+# Function to play alarm sound
+def play_alarm():
+    if not pygame.mixer.get_busy():
+        alarm_sound.play(loops=-1)
+
+# Function to stop alarm sound
+def stop_alarm():
+    alarm_sound.stop()
+
+# Access laptop camera
+cap = cv2.VideoCapture(0)
+score = 0
+alarm_on = False
+
+# Load Haarcascade Classifiers
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_alt.xml")
+left_eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_lefteye_2splits.xml")
+right_eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_righteye_2splits.xml")
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+    
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    
+    previous_score = score  # Store previous score to detect decrease
+    
+    for (x, y, w, h) in faces:
+        roi_gray = gray[y:y+h, x:x+w]
+        roi_color = frame[y:y+h, x:x+w]
+        left_eye = left_eye_cascade.detectMultiScale(roi_gray, scaleFactor=1.1, minNeighbors=5)
+        right_eye = right_eye_cascade.detectMultiScale(roi_gray, scaleFactor=1.1, minNeighbors=5)
+        
+        eyes_closed = False
+        eyes_detected = False
+        
+        for (ex, ey, ew, eh) in left_eye:
+            eye = roi_color[ey:ey+eh, ex:ex+ew]
+            eye = cv2.cvtColor(eye, cv2.COLOR_BGR2RGB)
+            eye = cv2.resize(eye, (64, 64))
+            eye = np.expand_dims(eye, axis=0)/255.0
+            prediction = model.predict(eye)
+            eyes_detected = True
+            if prediction < 0.5:
+                eyes_closed = True
+
+        for (ex, ey, ew, eh) in right_eye:
+            eye = roi_color[ey:ey+eh, ex:ex+ew]
+            eye = cv2.cvtColor(eye, cv2.COLOR_BGR2RGB)
+            eye = cv2.resize(eye, (64, 64))
+            eye = np.expand_dims(eye, axis=0)/255.0
+            prediction = model.predict(eye)
+            eyes_detected = True
+            if prediction < 0.5:
+                eyes_closed = True
+        
+        if eyes_detected:
+            if eyes_closed:
+                score += 1
+                if score >= 10 and not alarm_on:
+                    play_alarm()
+                    alarm_on = True
+                cv2.putText(frame, f"DROWSY! Score: {score}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            else:
+                score = max(0, score - 1)
+    
+    # Stop alarm if score starts decreasing
+    if score < previous_score and alarm_on:
+        stop_alarm()
+        alarm_on = False
+    
+    cv2.imshow("Driver Drowsiness Detection", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+stop_alarm()
+
