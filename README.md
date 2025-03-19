@@ -27,6 +27,9 @@ matplotlib
 pandas
 scikit-learn
 imutils
+pygame
+
+
 pip install your_dependency_name
 eg:pip install keras
 
