@@ -60,6 +60,7 @@ This project is open-source and available under the **MIT License**.
 -also upload the dataset in the same folder 
 -now in vs code open a new file with main.ipynb name
 -execute the main.ipynb
+-you can download the dataset from the folder dataset there is a link attached copy the link and paste it then you can download in the zip format
 -now if you want to build a front end with flask i have given the code app.py
 -create a new file with app.py and in the terminal run python app.py else just execute the main.ipynb
 
